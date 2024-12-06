@@ -1,0 +1,4 @@
+pydantic==2.7.4
+pydantic_core==2.18.4
+libvalkey==4.0.0
+valkey==6.0.2
