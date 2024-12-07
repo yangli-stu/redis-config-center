@@ -6,15 +6,19 @@
 
 ## 简介
 
-Redis Config Center 是一个基于Redis实现的简易配置中心，旨在支持不同节点分配不同的配置组。它模仿了Nacos的设计理念，提供了配置的发布、自动更新和获取功能，并且能够根据当前节点的机器ID自动选择对应的配置组。
+Redis Config Center 是一个基于Redis实现的简易版配置中心，旨在支持不同节点动态分配不同的配置组。它模仿了Nacos的设计理念，提供了配置的发布、自动更新，获取，配置组隔离等功能，并且能够根据当前节点的机器ID自动分配对应的配置组。
+
+### 实现背景
+我们有一批能动态扩缩容的集群节点，需要为不同节点设置不同的配置组信息，除了支持常规的配置组动态刷新外，我们还希望能动态上下线配置组，并在上下线过程中，为节点自动分配新的配置组。
 
 ## 特性
 
 - **配置管理**：通过Redis进行配置的存储和管理。
 - **动态刷新**：客户端定时从服务器拉取最新的配置。
-- **IP路由**：当特定配置组不存在时，基于IP地址分配配置组。
-- **默认配置**：提供一个默认配置组，确保所有节点至少有一个可用配置。
+- **配置组隔离**：基于配置组隔离不同配置，可在环境变量中指定配置组。
+- **IP路由/配置组动态分配**：当指定的配置组不存在或者被删除时，基于IP地址自动重新分配配置组，保证服务至少有一个配置组可用且无需重启。
 - **异步非阻塞**: python 协程实现，非阻塞。
+- **可扩展性强**：核心代码仅100行左右，高可读性与可扩展性
 
 ## 安装与使用
 
@@ -31,10 +35,11 @@ pip install -r requirements.txt
 
 #### 发布配置 (服务端)
 
-在 `redis_config_server.py` 中定义并启动配置服务器：
+基于 `redis_config_server.py` 发布配置：
 
 ```python
-from redis_config_server import config_server
+import asyncio
+from redis_config_server import config_server, ConfigGroup
 
 async def test():
     await config_server.insert_config_group(
@@ -50,22 +55,28 @@ if __name__ == "__main__":
 
 #### 获取配置 (客户端)
 
-在 `redis_config_client.py` 中定义并启动配置客户端：
+基于 `redis_config_client.py` 启动配置中心客户端，并获取配置：
 
 ```python
+import asyncio
 from redis_config_client import config_client
 
-config_client.start()
-await asyncio.sleep(6)  # 等待足够的时间让配置刷新完成
-cur_config_group = await config_client.get_config_group()
-print(f"客户端当前配置为：{cur_config_group}")
+async def test():
+    await config_client.start()
+    await asyncio.sleep(6)  # 等待足够的时间让配置刷新完成
+    
+    cur_config_group = config_client.get_config_group()
+    test_val = config_client.get_config("test_key")
+    
+    print(f"客户端当前配置组信息为：{cur_config_group}")
+    print(f"客户端当前配置'test_key'的值为：{test_val}")
+
+if __name__ == "__main__":
+    asyncio.run(test())
+
 ```
 
-*完整测试用例可参考：redis_config_server.py:64*
-
-### 注意事项
-- **错误处理**：虽然这里没有详细列出，但在实际应用中应当加入适当的错误处理逻辑，以提高系统的健壮性。
-- **日志记录**：推荐使用Python的`logging`模块代替简单的`print`语句来进行日志记录，以便于管理和分析日志信息。
+*完整测试用例可参考：redis_config_test.py*
 
 
 ## 贡献指南
