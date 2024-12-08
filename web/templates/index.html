@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redis Config Center</title>
+    <link rel="stylesheet" href="../static/tailwind.min.css">
+    <link rel="stylesheet" href="../static/common.css">
+    <script src="../static/jquery-3.6.0.min.js"></script>
+    <script src="../static/sweetalert2@11.js"></script>
+</head>
+<body class="bg-gray-100">
+    <header class="p-4 bg-white shadow-md pixel-style">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-gray-500">Redis Config Center</h1>
+            <div>
+                <p>Host: {{ redis_info.host }}</p>
+                <p>Port: {{ redis_info.port }}</p>
+                <p>DB: {{ redis_info.db }}</p>
+                <p>Config Server Name: {{ redis_info.config_server_name }}</p>
+                <p>Environment: {{ redis_info.environment }}</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4">
+        <h1 class="text-xl mb-4 text-gray-500">配置组管理</h1>
+        <div class="flex items-center space-x-2 mb-4">
+            <input type="text" id="search" placeholder="搜索配置组名称..." class="border rounded p-2 flex-grow" onkeydown="handleEnterKey(event)">
+            <button onclick="loadConfigGroups()" class="bg-blue-500 text-white px-4 py-2 rounded">搜索</button>
+            <button onclick="exportConfigGroups()" class="bg-purple-500 text-white px-4 py-2 rounded">导出</button>
+            <a href="/import-config-group" class="bg-purple-500 text-white px-4 py-2 rounded">导入</a>
+            <button onclick="window.location.href='/add-config-group'" class="bg-green-500 text-white px-4 py-2 rounded">添加配置组</button>
+        </div>
+        <table class="w-full border-collapse">
+            <thead>
+                <tr>
+                    <th class="border p-2">配置组</th>
+                    <th class="border p-2">版本</th>
+                    <th class="border p-2">配置数</th>
+                    <th class="border p-2">操作</th>
+                </tr>
+            </thead>
+            <tbody id="config-groups-table-body">
+                <!-- 表格行将通过JavaScript动态加载 -->
+            </tbody>
+        </table>
+    </main>
+
+    <script>
+        function handleEnterKey(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // 防止表单提交或其他默认行为
+                loadConfigGroups();
+            }
+        }
+
+        function loadConfigGroups() {
+            const searchValue = $('#search').val();
+            $.getJSON(`/config-groups?search=${searchValue}`, function(data) {
+                let tbody = $('#config-groups-table-body');
+                tbody.empty();
+                if (data.config_groups && Array.isArray(data.config_groups)) {
+                    data.config_groups.forEach(group => {
+                        const groupRowId = `group-${group.group_name.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                        tbody.append(`
+                            <tr id="${groupRowId}">
+                                <td class="border p-2" onclick="toggleDetails('${groupRowId}')">
+                                    <button class="bg-transparent border-0 text-gray-600 hover:text-gray-800 focus:outline-none" aria-label="Toggle details">
+                                        ▶
+                                    </button>
+                                    ${group.group_name}
+                                </td>
+                                <td class="border p-2">${group.group_version}</td>
+                                <td class="border p-2">${Object.keys(group.config_dict).length}</td>
+                                <td class="border p-2">
+                                    <a href="/view-config-group/${group.group_name}" class="bg-blue-500 text-white px-2 py-1 rounded mr-2">预览</a>
+                                    <a href="/edit-config-group/${group.group_name}" class="bg-yellow-500 text-white px-2 py-1 rounded mr-2">修改</a>
+                                    <a href="#" onclick="deleteConfigGroup('${group.group_name}')" class="bg-red-500 text-white px-2 py-1 rounded">删除</a>
+                                </td>
+                            </tr>
+                            <tr id="${groupRowId}-details" style="display:none;">
+                                <td colspan="5" class="border p-2">
+                                    <pre id="${groupRowId}-json" class="bg-gray-900 text-white p-4 rounded"></pre>
+                                </td>
+                            </tr>
+                        `);
+
+                        // 初始化JSON内容
+                        $(`#${groupRowId}-json`).text(JSON.stringify(group.config_dict, null, 2));
+                    });
+                } else {
+                    console.error('Received unexpected data structure:', data);
+                }
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                console.error('Failed to load config groups:', textStatus, errorThrown);
+            });
+        }
+
+        function toggleDetails(rowId) {
+            const detailsRow = document.getElementById(`${rowId}-details`);
+            const button = document.querySelector(`#${rowId} button`);
+
+            if (detailsRow.style.display === "none") {
+                detailsRow.style.display = "table-row";
+                button.innerHTML = '▼'; // 展开时显示下箭头
+            } else {
+                detailsRow.style.display = "none";
+                button.innerHTML = '▶'; // 折叠时显示右箭头
+            }
+        }
+
+        function deleteConfigGroup(groupName) {
+            Swal.fire({
+                title: '确定要删除此配置组吗？',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: '确认'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.post(`/delete-config-group/${groupName}`, function(response) {
+                        if (response.success) {
+                            Swal.fire('删除成功!', response.message, 'success');
+                            loadConfigGroups();
+                        } else {
+                            Swal.fire('删除失败!', response.message, 'error');
+                        }
+                    }).fail(function(xhr, status, error) {
+                        Swal.fire('删除失败!', xhr.responseJSON ? xhr.responseJSON.detail : '网络错误', 'error');
+                    });
+                }
+            });
+        }
+
+        function exportConfigGroups() {
+            const timestamp = new Date(Date.now()).toISOString();
+            $.getJSON('/config-groups', function(data) {
+                if (data.config_groups && Array.isArray(data.config_groups)) {
+                    const configGroupsJson = JSON.stringify(data.config_groups, null, 2);
+                    const blob = new Blob([configGroupsJson], { type: 'application/json' });
+                    const filename = `Redis_Config_Center_export_${timestamp}.json`;
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                }
+            });
+        }
+
+        $(document).ready(function() {
+            loadConfigGroups();
+        });
+    </script>
+</body>
+</html>

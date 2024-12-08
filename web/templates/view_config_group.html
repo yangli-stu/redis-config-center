@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ config_group.group_name }} - 配置详情</title>
+    <link rel="stylesheet" href="../static/tailwind.min.css">
+    <link rel="stylesheet" href="../static/common.css">
+<!--    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">-->
+</head>
+<body class="bg-gray-100">
+    <header class="p-4 bg-white shadow-md pixel-style">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl">预览配置</h1>
+            <a href="/" class="bg-green-500 text-white px-4 py-2 rounded">返回首页</a>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4">
+        <div>
+            <p><strong>配置组:</strong> {{ config_group.group_name }}</p>
+            <p><strong>版本:</strong> {{ config_group.group_version }}</p>
+            <table class="w-full border-collapse mt-4">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="border p-2">Key</th>
+                        <th class="border p-2">Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key, value in config_group.config_dict.items() %}
+                        <tr>
+                            <td class="border p-2">{{ key }}</td>
+                            <td class="border p-2">
+                                {% if value is mapping %}
+                                    <table class="w-full border-collapse">
+                                        <thead>
+                                            <tr class="bg-gray-200">
+                                                <th class="border p-2">Sub-Key</th>
+                                                <th class="border p-2">Sub-Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for sub_key, sub_value in value.items() %}
+                                                <tr>
+                                                    <td class="border p-2">{{ sub_key }}</td>
+                                                    <td class="border p-2">{{ sub_value }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                {% else %}
+                                    {{ value }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</body>
+</html>

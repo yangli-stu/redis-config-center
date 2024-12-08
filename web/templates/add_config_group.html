@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>添加配置组</title>
+    <link rel="stylesheet" href="../static/tailwind.min.css">
+    <link rel="stylesheet" href="../static/common.css">
+    <script src="../static/sweetalert2@11.js"></script>
+    <script src="../static/jquery-3.6.0.min.js"></script>
+<!--    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">-->
+<!--    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>-->
+<!--    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>-->
+</head>
+<body class="bg-gray-100">
+    <header class="p-4 bg-white shadow-md pixel-style">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl">添加配置组</h1>
+            <a href="/" class="bg-green-500 text-white px-4 py-2 rounded">返回首页</a>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4">
+        <form id="config-form" method="post" class="space-y-4">
+            <div class="mb-4">
+                <label for="group_name" class="block text-gray-700 font-bold mb-2">配置组名:</label>
+                <input type="text" id="group_name" name="group_name" value="default" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+            </div>
+            <div class="mb-4">
+                <label for="group_version" class="block text-gray-700 font-bold mb-2">版本:</label>
+                <input type="text" id="group_version" name="group_version" value="0" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" readonly>
+            </div>
+
+            <table id="config-table" class="w-full border-collapse mt-4">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="border p-2">Key</th>
+                        <th class="border p-2">Value</th>
+                        <th class="border p-2">操作</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+
+            <button id="add-config" type="button" onclick="addRow()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">添加配置项</button>
+
+            <button id="submit-button" type="button" onclick="validateAndSubmitForm()" class="bg-blue-500 text-white px-4 py-2 rounded mt-4">提交发布</button>
+        </form>
+    </main>
+
+    <script>
+        function addRow() {
+            const table = document.getElementById('config-table').getElementsByTagName('tbody')[0];
+            const newRow = table.insertRow();
+            const cell1 = newRow.insertCell(0);
+            const cell2 = newRow.insertCell(1);
+            const cell3 = newRow.insertCell(2);
+
+            cell1.innerHTML = `<input type="text" name="key[]" class="w-full">`;
+            cell2.innerHTML = `<input type="text" name="value[]" class="w-full">`;
+            cell3.innerHTML = `<button type="button" onclick="removeRow(this)" class="bg-red-500 text-white px-2 py-1 rounded">删除</button>`;
+
+            // 确保新的行和单元格也应用了相同的类名来保持样式一致性
+            Array.from(newRow.cells).forEach(cell => {
+                cell.classList.add('border', 'p-2');
+            });
+        }
+
+        function removeRow(button) {
+            button.closest('tr').remove();
+        }
+
+        function validateAndSubmitForm() {
+            // 收集所有的键值对
+            const keys = [];
+            const values = [];
+            $('[name="key[]"]').each(function(index) {
+                keys.push($(this).val());
+                values.push($('[name="value[]"]').eq(index).val());
+            });
+
+            // 检查是否有重复的键
+            if (new Set(keys).size !== keys.length) {
+                Swal.fire({
+                    icon: 'error',
+                    title: '失败!',
+                    text: '配置项中存在重复的键。',
+                });
+                return;
+            }
+
+            // 构建 config_dict_json
+            const configDict = {};
+            for (let i = 0; i < keys.length; i++) {
+                if (keys[i] && values[i]) { // 确保键和值都不是空
+                    configDict[keys[i]] = values[i];
+                }
+            }
+
+            try {
+                const configDictJson = JSON.stringify(configDict);
+
+                // 创建 FormData 对象并手动添加必要的字段
+                const formData = new FormData();
+                formData.append('group_name', $('[name="group_name"]').val()); // 获取配置组名
+                formData.append('group_version', $('[name="group_version"]').val()); // 获取版本号，默认为0
+                formData.append('config_dict_json', configDictJson); // 添加 JSON 字符串
+
+                // 发送 AJAX 请求
+                $.ajax({
+                    url: '/add-config-group',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        if (response.success) {
+                            // 提交成功，置灰表单元素，避免重复提交
+                            $('#config-form :input').prop('disabled', true).addClass('disabled-form');
+                            $('#add-config').prop('disabled', true).addClass('disabled-button');
+                            $('#submit-button').prop('disabled', true).addClass('disabled-button');
+                            Swal.fire({
+                                icon: 'success',
+                                title: '成功!',
+                                text: response.message,
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: '失败!',
+                                text: response.message,
+                            });
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        var errorMessage = xhr.responseJSON ? xhr.responseJSON.detail : '网络错误';
+                        Swal.fire({
+                            icon: 'error',
+                            title: '失败!',
+                            text: errorMessage,
+                        });
+                    }
+                });
+            } catch (jsonError) {
+                Swal.fire({
+                    icon: 'error',
+                    title: '失败!',
+                    text: '无效的 JSON 格式，请检查输入。',
+                });
+            }
+        }
+</script>
+</body>
+</html>

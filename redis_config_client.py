@@ -15,7 +15,7 @@ REDIS_URL = os.getenv("REDIS_URL", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_DB = int(os.getenv("REDIS_DB", 0))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
-DEFAULT_CONFIG_GROUP = os.getenv("MACHINE_ID", "default")
+DEFAULT_CONFIG_GROUP = os.getenv("DEFAULT_CONFIG_GROUP", "default")
 
 # 配置 Redis 客户端
 import valkey.asyncio as avalkey
@@ -35,14 +35,14 @@ except Exception as e:
 
 class ConfigGroup(BaseModel):
     group_name: str
-    group_version: str
+    group_version: int
     config_dict: Optional[dict] = None
 
 
 class ConfigClient:
     def __init__(self, config_server_name: str, refresh_time: int = 5):
         self.config_server_name = config_server_name
-        self.config_group = ConfigGroup(group_name=DEFAULT_CONFIG_GROUP, group_version="-1", config_dict={})
+        self.config_group = ConfigGroup(group_name=DEFAULT_CONFIG_GROUP, group_version=-1, config_dict={})
         self.refresh_time = refresh_time
         self._refresh_task = None
 
@@ -106,5 +106,5 @@ class ConfigClient:
         logger.info("[ConfigClient] Redis client config center started.")
 
 
-config_client = ConfigClient(config_server_name="redis_config_center", refresh_time=5)
+config_client = ConfigClient(config_server_name="rcc::config::redis_config_center", refresh_time=5)
 

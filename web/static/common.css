@@ -1,0 +1,38 @@
+/* styles.css */
+/* 禁用状态下的表单样式 */
+.disabled-form {
+    opacity: 0.5; /* 置灰效果 */
+    pointer-events: none; /* 阻止鼠标事件 */
+}
+
+/* 禁用状态下的按钮样式 */
+.disabled-button {
+    background-color: #ccc; /* 置灰背景色 */
+    border-color: #ccc;
+    color: #666; /* 文字颜色变暗 */
+    cursor: not-allowed; /* 改变光标形状 */
+}
+
+body {
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.pixel-style {
+    background-color: #f5f5f5;
+    border-radius: 5px;
+    padding: 10px;
+    box-shadow: 2px 2px 0 #ccc;
+}
+
+/* 置灰页面样式 */
+#overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    display: none; /* 默认隐藏 */
+}
+

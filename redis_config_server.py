@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Optional, Any
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -23,7 +23,7 @@ try:
         port=REDIS_PORT,
         db=REDIS_DB,
         password=REDIS_PASSWORD,
-        max_connections=1
+        max_connections=10
     )
 except Exception as e:
     logger.error(f"[Redis Config Center] 初始化 Redis 客户端失败: {e}")
@@ -32,7 +32,7 @@ except Exception as e:
 
 class ConfigGroup(BaseModel):
     group_name: str
-    group_version: str
+    group_version: int
     config_dict: Optional[dict] = None
 
 
@@ -42,10 +42,17 @@ class ConfigServer:
 
     async def insert_config_group(self, config_group: ConfigGroup):
         try:
+            # 如果配置组存在，则增加版本号
+            existing_config_group = await self.get_config_group(config_group.group_name)
+            if existing_config_group:
+                config_group.group_version = existing_config_group.group_version + 1
+            else:
+                config_group.group_version = 0
+
             await redis_client.hset(self.config_server_name, config_group.group_name, config_group.model_dump_json())
-            logger.info(f"[ConfigServer] 配置组 {config_group.group_name} 已 （添加/更新）")
+            logger.info(f"[ConfigServer] 配置组 {config_group.group_name} 已（添加/更新）")
         except Exception as e:
-            logger.error(f"[ConfigServer] （添加/更新） 配置组失败: {e}")
+            logger.error(f"[ConfigServer]（添加/更新） 配置组失败: {e}")
 
     async def get_config_group(self, group_name: str) -> Optional[ConfigGroup]:
         try:
@@ -64,6 +71,15 @@ class ConfigServer:
         except Exception as e:
             logger.error(f"[ConfigServer] 删除配置组失败: {e}")
 
+    async def get_all_config_groups(self):
+        try:
+            keys = sorted(await redis_client.hkeys(self.config_server_name))
+            groups = [await config_server.get_config_group(key.decode('utf-8')) for key in keys]
+            return [g for g in groups if g is not None]
+        except Exception as e:
+            logger.error(f"[ConfigServer] 获取所有配置组失败: {e}")
+            return []
 
-config_server = ConfigServer(config_server_name="redis_config_center")
+
+config_server = ConfigServer(config_server_name="rcc::config::redis_config_center")
 
