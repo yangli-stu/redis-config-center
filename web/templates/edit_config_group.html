@@ -105,8 +105,30 @@
             // 构建 config_dict_json
             const configDict = {};
             for (let i = 0; i < keys.length; i++) {
-                if (keys[i] && values[i]) { // 确保键和值都不是空
-                    configDict[keys[i]] = values[i];
+                const key = keys[i];
+                const value = values[i];
+
+                // 如果键或值为空则跳过
+                if (!key || !value) {
+                    continue;
+                }
+
+                try {
+                    // 检查是否是可能的 JSON 字符串（以 { 开头 } 结尾 或者 [ 开头 ] 结尾）
+                    if (/^\s*[{\[]/.test(value)) {
+                        // 尝试将 value 解析为 JSON
+                        configDict[key] = JSON.parse(value.replace(/'/g, '"'));
+                    } else {
+                        // 不是 JSON 格式，保留原始字符串
+                        configDict[key] = value;
+                    }
+                } catch (jsonError) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: '警告!',
+                        text: `配置项 "${key}" 的值不是一个有效的 JSON 字符串，请检查格式。`,
+                    });
+                    return; // 停止循环，不再继续验证其他项
                 }
             }
 
